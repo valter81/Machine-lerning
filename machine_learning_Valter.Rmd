@@ -1,0 +1,81 @@
+---
+title: "Project machine learning"
+author: "Valter Cruz Perez"
+date: "Saturday, April 25, 2015"
+output: html_document
+---
+## Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+
+The aim of this report was to use data from accelerometers placed on the belt, forearm, arm, and dumbell of six participants to predict how well they were doing the exercise in terms of the classification in the data. 
+
+## Packagues and libraries
+```{r}
+library(caret)
+library(corrplot)
+library(kernlab)
+library(knitr)
+library(randomForest)
+library(lattice)
+library(ggplot2)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(rattle)
+```
+
+## Setup URL and download data
+```{r, eval = FALSE}
+f1 <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+f2 <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+data.training <- read.csv(url(f1), na.strings=c("NA","#DIV/0!",""))
+data.test <- read.csv(url(f2), na.strings=c("NA","#DIV/0!",""))
+dateDownloaded <- date()
+```
+## clean data frame 
+```{r}
+# clean the data by removing columns with NAs etc
+f1 <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+data.training <- read.csv(url(f1), na.strings=c("NA","#DIV/0!",""))
+data.training.NA <- apply(data.training, 2, function(x) {sum(is.na(x))})
+data.training.NONA <- data.training[,which(data.training.NA == 0)]
+
+# remove identifier columns such as name, timestamps etc
+data.training.NONA <- data.training.NONA[8:length(data.training.NONA)]
+```
+### Prepare data frame in to testing, training and test (cross validation)
+```{r}
+inTrain <- createDataPartition(y = data.training.NONA$classe, p = 0.7, list = FALSE)
+training <- data.training.NONA[inTrain, ]
+test <- data.training.NONA[-inTrain, ]
+```
+### Correlation test
+```{r, fig.height = 6, fig.width = 8}
+# plot a correlation matrix
+cor_matrix <- cor(training[, -length(training)])
+corrplot(cor_matrix, order = "FPC", method = "circle", type = "lower", tl.cex = 0.8,  tl.col = rgb(0, 0, 0))
+```
+### Run fit model to predict the classe using the other variable
+```{r}
+# fit a model to predict the classe using everything else as a predictor
+fit_model <- randomForest(classe ~ ., data = training)
+```
+### Create a crossvalidate with test data (test <- data.training.NONA[-inTrain, ]) this mean the 30% of ramaining data)
+```{r}
+# crossvalidate the model using the remaining 30% of data
+prediction <- predict(fit_model, test)
+confusionMatrix(test$classe, prediction)
+```
+# apply the same treatment to the final testing data
+``` {r}
+f2 <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+data.test <- read.csv((f2), na.strings=c("NA","#DIV/0!",""))
+data.test.NA <- apply(data.test, 2, function(x) {sum(is.na(x))})
+data.test.NONA <- data.test[,which(data.test.NA == 0)]
+data.test.NONA <- data.test.NONA[8:length(data.test.NONA)]
+```
+# predict the classes of the test set
+```{r}
+predictTest <- predict(fit_model, data.test.NONA)
+predictTest
+```
